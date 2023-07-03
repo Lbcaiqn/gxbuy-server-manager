@@ -33,6 +33,9 @@ export class GoodsSku {
   @Column({ type: 'json', nullable: true })
   sku_sales_attrs: Array<{ name: string; value: string }>;
 
+  @Column({ type: 'int', unsigned: true, nullable: false, default: 100 })
+  max_single_buy_quantity: number;
+
   @Column({ type: 'boolean', nullable: false, default: false })
   isGrounding: boolean;
 

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request } from 'express';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { ShopManager } from '../user/entities/shop_manager.entity';
 import { ShopManagerRole } from '../user/entities/shop_manager_role.entity';
 import { ShopManagerSystemAuthority } from '../user/entities/shop_manager_system_authority.entity';
@@ -31,6 +31,7 @@ export class AuthorityService {
       .where('authority.parentMenu IS NULL')
       .getMany();
 
+    authorityData.pop();
     getAuthority(authorityData, false);
 
     return authorityData;
@@ -38,10 +39,13 @@ export class AuthorityService {
 
   async getRoleList(req: Request) {
     const { shopId } = verify(req.headers.authorization, SECRCT) as any;
-    const { pageSize, page } = req.query as any;
+    const { keyword, pageSize, page } = req.query as any;
+
+    const whereInfo: any = { shop_id: shopId };
+    if (keyword && typeof keyword === 'string') whereInfo.shop_manager_role_name = Like(`%${keyword}%`);
 
     const roleList = await this.shopManagerRoleRepository.findAndCount({
-      where: { shop_id: shopId },
+      where: whereInfo,
       skip: (page - 1) * pageSize || 0,
       take: pageSize || 30,
       order: { update_time: 'desc' },
@@ -135,11 +139,14 @@ export class AuthorityService {
 
   async getManagerList(req: Request) {
     const { shopId } = verify(req.headers.authorization, SECRCT) as any;
-    const { pageSize, page } = req.query as any;
+    const { keyword, pageSize, page } = req.query as any;
+
+    const whereInfo: any = { shop_id: shopId };
+    if (keyword && typeof keyword === 'string') whereInfo.shop_manager_name = Like(`%${keyword}%`);
 
     const roleList = await this.shopManagerRepository.findAndCount({
       relations: ['shop_manager_role'],
-      where: { shop_id: shopId },
+      where: whereInfo,
       skip: (page - 1) * pageSize || 0,
       take: pageSize || 30,
       order: { update_time: 'desc' },

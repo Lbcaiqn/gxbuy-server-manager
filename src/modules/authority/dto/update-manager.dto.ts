@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger/dist';
 export class UpdateManagerDto {
   @IsNotEmpty()
   @IsString()
-  @Matches(/^.{8,50}$/, { message: '8到50个字符' })
+  @Matches(/^.{5,50}$/, { message: '5到50个字符' })
   @ApiProperty({ type: String, example: '12345678' })
   managerAccount: string;
 

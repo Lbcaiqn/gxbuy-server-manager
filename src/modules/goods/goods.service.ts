@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request } from 'express';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { GoodsSpu } from './entities/goods_spu.entity';
 import { GoodsSku } from './entities/goods_sku.entity';
 import { GoodsImg } from './entities/goods_img.entity';
@@ -41,11 +41,14 @@ export class GoodsService {
   async getGoodsSpuList(req: Request) {
     const { shopId } = verify(req.headers.authorization, SECRCT) as any;
 
-    const { pageSize, page } = req.query as any;
+    const { keyword, pageSize, page } = req.query as any;
+
+    const whereInfo: any = { shop_id: shopId };
+    if (keyword && typeof keyword === 'string') whereInfo.goods_spu_name = Like(`%${keyword}%`);
 
     const data = await this.goodsSpuRepository.findAndCount({
       relations: ['goods_img', 'goods_sku'],
-      where: { shop_id: shopId },
+      where: whereInfo,
       skip: (page - 1) * pageSize || 0,
       take: pageSize || 30,
       order: { update_time: 'desc' },
@@ -77,6 +80,8 @@ export class GoodsService {
 
   async createGoodsSpu(req: Request, createInfo: CreateGoodsSpuDto) {
     const { shopId } = verify(req.headers.authorization, SECRCT) as any;
+
+    if (createInfo.spuSalesAttrs.length === 0) new HttpException('至少需要一条销售属性', HttpStatus.BAD_REQUEST);
 
     const spu = new GoodsSpu();
     const goodsImgBanner = new GoodsImg();
@@ -151,7 +156,7 @@ export class GoodsService {
 
     sku.goods_sku_name = createInfo.goodsSkuName;
     sku.goods_sku_img = createInfo.goodsSkuImg;
-    sku.goods_sku_price = createInfo.goodsSkuPrice;
+    sku.goods_sku_price = String(Math.abs(Number(createInfo.goodsSkuPrice)));
     sku.goods_sku_stock = Math.floor(Math.abs(createInfo.goodsSkuStock));
     sku.c1id = spu.c1id;
     sku.c2id = spu.c2id;
@@ -163,11 +168,19 @@ export class GoodsService {
 
     await this.goodsSkuRepository.save(sku);
 
+    spu.goods_first_sku_price = spu.goods_sku.length === 0 ? sku.goods_sku_price : spu.goods_sku[0].goods_sku_price;
+    spu.goods_sku_total_stock += sku.goods_sku_stock;
+
+    delete spu.goods_sku;
+    await this.goodsSpuRepository.update(spu._id, spu);
+
     return '新增SKU成功';
   }
 
   async updateGoodsSpu(req: Request, updateInfo: UpdateGoodsSpuDto) {
     const { shopId } = verify(req.headers.authorization, SECRCT) as any;
+
+    if (updateInfo.spuSalesAttrs.length === 0) new HttpException('至少需要一条销售属性', HttpStatus.BAD_REQUEST);
 
     const spu = await this.goodsSpuRepository.findOne({
       where: { _id: updateInfo.goodsSpuId, shop_id: shopId },
@@ -216,7 +229,7 @@ export class GoodsService {
   async updateGoodsSku(req: Request, updateInfo: UpdateGoodsSkuDto) {
     const { shopId } = verify(req.headers.authorization, SECRCT) as any;
 
-    const spu = await this.goodsSpuRepository.findOne({
+    let spu = await this.goodsSpuRepository.findOne({
       relations: ['goods_sku'],
       where: { _id: updateInfo.goodsSpuId, shop_id: shopId },
     });
@@ -256,14 +269,27 @@ export class GoodsService {
       }
     }
 
+    const oldStock = sku.goods_sku_stock;
+
     sku.goods_sku_name = updateInfo.goodsSkuName;
     sku.goods_sku_img = updateInfo.goodsSkuImg;
     sku.sku_sales_attrs = updateInfo.skuSalesAttrs;
-    sku.goods_sku_price = updateInfo.goodsSkuPrice;
-    sku.goods_sku_stock = updateInfo.goodsSkuStock;
+    sku.goods_sku_price = String(Math.abs(Number(updateInfo.goodsSkuPrice)));
+    sku.goods_sku_stock = Math.floor(Math.abs(Number(updateInfo.goodsSkuStock)));
     sku.update_time = new Date();
 
     await this.goodsSkuRepository.update(sku._id, sku);
+
+    spu = await this.goodsSpuRepository.findOne({
+      relations: ['goods_sku'],
+      where: { _id: updateInfo.goodsSpuId, shop_id: shopId },
+    });
+
+    spu.goods_first_sku_price = spu.goods_sku.length === 0 ? sku.goods_sku_price : spu.goods_sku[0].goods_sku_price;
+    spu.goods_sku_total_stock = spu.goods_sku_total_stock - oldStock <= 0 ? 0 : spu.goods_sku_total_stock - oldStock;
+    spu.goods_sku_total_stock += sku.goods_sku_stock;
+    delete spu.goods_sku;
+    await this.goodsSpuRepository.update(spu._id, spu);
 
     return '修改成功';
   }
@@ -293,6 +319,20 @@ export class GoodsService {
 
     await this.goodsSkuRepository.delete(sku._id);
 
+    const spu = await this.goodsSpuRepository.findOne({
+      relations: ['goods_sku'],
+      where: { _id: sku.goods_spu_id, shop_id: shopId },
+    });
+
+    if (spu) {
+      spu.goods_first_sku_price = spu.goods_sku.length === 0 ? '0.00' : spu.goods_sku[0].goods_sku_price;
+      spu.goods_sku_total_stock =
+        spu.goods_sku_total_stock - sku.goods_sku_stock <= 0 ? 0 : spu.goods_sku_total_stock - sku.goods_sku_stock;
+      if (spu.goods_sku.length === 0) spu.isGrounding = false;
+      delete spu.goods_sku;
+      await this.goodsSpuRepository.update(spu._id, spu);
+    }
+
     return '删除成功';
   }
 
@@ -307,7 +347,7 @@ export class GoodsService {
 
       if (!spu) throw new HttpException('spu不存在', HttpStatus.BAD_REQUEST);
 
-      for (let i of spu.goods_sku) {
+      for (const i of spu.goods_sku) {
         i.isGrounding = groundInfo.ground;
         await this.goodsSkuRepository.update(i._id, i);
       }
@@ -326,15 +366,13 @@ export class GoodsService {
 
       if (!sku) throw new HttpException('sku不存在', HttpStatus.BAD_REQUEST);
 
+      sku.isGrounding = groundInfo.ground;
+      await this.goodsSkuRepository.update(sku._id, sku);
+
       const spu = await this.goodsSpuRepository.findOne({
         relations: ['goods_sku'],
         where: { _id: sku.goods_spu_id, shop_id: shopId },
       });
-
-      if (!spu) throw new HttpException('spu不存在', HttpStatus.BAD_REQUEST);
-
-      sku.isGrounding = groundInfo.ground;
-      await this.goodsSkuRepository.update(sku._id, sku);
 
       if (groundInfo.ground === true && spu.isGrounding === false) {
         spu.isGrounding = true;

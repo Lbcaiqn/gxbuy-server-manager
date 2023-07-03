@@ -4,6 +4,7 @@ import { UserModule } from './modules/user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthorityModule } from './modules/authority/authority.module';
+import { OrderModule } from './modules/order/order.module';
 
 @Module({
   imports: [
@@ -12,17 +13,18 @@ import { AuthorityModule } from './modules/authority/authority.module';
     TypeOrmModule.forRoot({
       type: 'mysql',
       username: 'root',
-      password: '123456',
+      password: 'Lgx123456@@',
       host: 'localhost',
       port: 3306,
       database: 'gxbuy',
-      synchronize: true,
+      // synchronize: true,
       retryDelay: 500,
       retryAttempts: 10,
       autoLoadEntities: true,
     }),
     ScheduleModule.forRoot(),
     AuthorityModule,
+    OrderModule,
   ],
 })
 export class AppModule {}

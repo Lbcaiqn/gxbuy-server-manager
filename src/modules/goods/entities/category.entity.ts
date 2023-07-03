@@ -23,6 +23,13 @@ export class Category {
   })
   add_time: Date;
 
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    nullable: false,
+  })
+  update_time: Date;
+
   @Index()
   @Column({ type: 'smallint', unsigned: true, nullable: true })
   cat_pid: number;

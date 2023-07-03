@@ -1,5 +1,4 @@
 import { Entity, Column, PrimaryGeneratedColumn, JoinColumn, Index, ManyToOne, OneToMany } from 'typeorm';
-import { Shop } from './shop.entity';
 
 @Entity()
 export class ShopManagerSystemAuthority {

@@ -39,6 +39,7 @@ export class UserService {
 
     const shopManager = await this.shopManagerRepository
       .createQueryBuilder('shop_manager')
+      .leftJoinAndSelect('shop_manager.shop', 'shop')
       .leftJoinAndSelect('shop_manager.shop_manager_role', 'shop_manager_role')
       .addSelect('shop_manager.shop_manager_password')
       .where(`shop_manager.shop_manager_account = :sma`, { sma: loginInfo.userAccount })
@@ -77,7 +78,7 @@ export class UserService {
         userId: shopManager._id,
       },
       SECRCT,
-      { expiresIn: 10 }
+      { expiresIn: 60 * 60 * 24 }
     );
 
     delete shopManager.shop_manager_password;
@@ -96,7 +97,7 @@ export class UserService {
     const { shopId, userId } = verify(req.headers.authorization, SECRCT) as any;
 
     const shopManager = await this.shopManagerRepository.findOne({
-      relations: ['shop_manager_role'],
+      relations: ['shop_manager_role', 'shop'],
       where: { _id: userId, shop_id: shopId },
     });
 

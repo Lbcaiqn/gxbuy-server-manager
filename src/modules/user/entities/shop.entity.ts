@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, Index, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 import { GoodsSpu } from '@/modules/goods/entities/goods_spu.entity';
 import { GoodsSku } from '@/modules/goods/entities/goods_sku.entity';
 import { GoodsImg } from '@/modules/goods/entities/goods_img.entity';
@@ -6,7 +6,6 @@ import { ShopManager } from './shop_manager.entity';
 import { ShopManagerRole } from './shop_manager_role.entity';
 
 @Entity()
-@Index('idx_unique_shop_account_name', ['shop_account', 'shop_name'], { unique: true })
 export class Shop {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   _id: string;
@@ -22,6 +21,18 @@ export class Shop {
 
   @Column({ type: 'varchar', length: 250, nullable: false })
   shop_logo: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: false })
+  shop_address: string;
+
+  @Column({ type: 'double', unsigned: true, nullable: false, default: 0.0 })
+  describe_level: number;
+
+  @Column({ type: 'double', unsigned: true, nullable: false, default: 0.0 })
+  service_level: number;
+
+  @Column({ type: 'double', unsigned: true, nullable: false, default: 0.0 })
+  logistics_level: number;
 
   @Column({
     type: 'timestamp',

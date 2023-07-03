@@ -17,6 +17,9 @@ export class ShopManager {
   @Column({ type: 'varchar', length: 50, nullable: false })
   shop_manager_name: string;
 
+  @Column({ type: 'varchar', length: 250, nullable: false, default: '' })
+  shop_manager_icon: string;
+
   @Column({
     type: 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
